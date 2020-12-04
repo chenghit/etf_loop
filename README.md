@@ -11,6 +11,6 @@ By default, it monitors four indexes which match the ETF funds as following:
 
 
 
-You would want to access below link to learn the monitor policy.
+You would want to access below link to learn about the monitor policy.
 
 https://mp.weixin.qq.com/s/AcFJEhWpFd8y2pM1IBfv2A
