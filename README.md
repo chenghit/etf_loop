@@ -1,6 +1,6 @@
 This python script monitors some indexes' gains for 20 trade days, and helps you choose which ETF fund you should purchase or short position.
 
-By default, it monitors four indexes which matches the ETF funds as following:
+By default, it monitors four indexes which match the ETF funds as following:
 
 | Name  | Index code | ETF code |
 | ----- | ---------- | -------- |
