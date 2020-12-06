@@ -27,6 +27,10 @@ def getIndexDaily(ts_code, start_date=start_date, end_date=end_date):
 	index_daily = pro.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
 	return index_daily
 
+def getFundDaily(ts_code, start_date=start_date, end_date=end_date):
+	fund_daily = pro.fund_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+	return fund_daily
+
 
 #Retrieve the trade dates and the close prices only.
 def getClose(df, index_name):
@@ -56,8 +60,9 @@ sh50 = getClose(getIndexDaily('000016.SH'), 'SH50')
 cyb = getClose(getIndexDaily('399006.SZ'), 'CYB')
 cyb50 = getClose(getIndexDaily('399673.SZ'), 'CYB50')
 kc50 = getClose(getIndexDaily('000688.SH'), 'KC50')
+national_debt = getClose(getFundDaily('511010.SH'), 'National Debt')
 
-df_result = mergeDf(sh50, cyb, cyb50, kc50)
+df_result = mergeDf(sh50, cyb, cyb50, kc50, national_debt)
 
 
 print()
@@ -83,7 +88,9 @@ def stockGains(df):
 		gains = (df[column][20] - df[column][0]) / df[column][0]
 		df_new = pd.DataFrame({'Index': ts_code, 'Gains': gains}, index=[1])
 		df_gains = df_gains.append(df_new, ignore_index=True)
-		df_gains = df_gains.sort_values(by='Gains').reset_index(drop=True)
+	
+	df_gains = df_gains.sort_values(by='Gains').reset_index(drop=True)
+	df_gains['Gains%'] = df_gains['Gains'].apply(lambda x: '%.2f%%' % (x * 100))
 
 	return df_gains
 
@@ -108,11 +115,12 @@ def tradeAdvisor(df_gains):
 
 	max_index = df_gains.iloc[-1, 0]
 	max_gain = df_gains.iloc[-1, 1]
+	max_percentage = df_gains.iloc[-1, 2]
 
-	if max_gain >= 0:
+	if max_gain > 0:
 		print()
-		print('Gains of {index} in recent 20 days is {gains:.2%}, so {index} is recommanded.'\
-			.format(index=max_index, gains=max_gain))
+		print('Gains of {index} in recent 20 days is {gains}, so {index} is recommanded.'\
+			.format(index=max_index, gains=max_percentage))
 		print()
 		print('-' * 20)
 		print()
