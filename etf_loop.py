@@ -1,9 +1,34 @@
 #!/usr/bin/env python3
+# -*- codeing = utf-8 -*-
 
+import datetime
+import requests
+import json
 import tushare as ts
 import pandas as pd
-import datetime
 
+from token.token import *
+
+
+webex_room_id = "Y2lzY29zcGFyazovL3VzL1JPT00vOWQ5NGU3NjAtNTU5ZC0xMWViLWI0YTEtM2Y0NDdhYTE0MGVj"
+
+def sendMessage(token, room_id, message):
+	header = {"Authorization": "Bearer %s" % token,
+			  "Content-Type": "application/json"}
+	data = {"roomId": room_id,
+			"text": message}
+	res = requests.post("https://api.ciscospark.com/v1/messages/",
+						 headers=header, data=json.dumps(data), verify=True)
+	if res.status_code == 200:
+		print("消息已经发送至 Webex Teams")
+	else:
+		print("failed with statusCode: %d" % res.status_code)
+		if res.status_code == 404:
+			print("please check the bot is in the room you're attempting to post to...")
+		elif res.status_code == 400:
+			print("please check the identifier of the room you're attempting to post to...")
+		elif res.status_code == 401:
+			print("please check if the access token is correct...")
 
 #Determine the range of trade dates.
 def getDays(beforeOfDay):
@@ -15,12 +40,7 @@ def getDays(beforeOfDay):
 
 start_date, end_date = getDays(45)
 
-token = ''
-
-with open('token.txt', 'r') as f:
-	token = f.readline()
-
-pro = ts.pro_api(token)
+pro = ts.pro_api(tushare_token)
 
 #Get the daily quotes of the indexes.
 def getIndexDaily(ts_code, start_date=start_date, end_date=end_date):
@@ -57,25 +77,25 @@ def mergeDf(*args):
 
 
 sh50 = getClose(getIndexDaily('000016.SH'), 'SH50')
-cyb = getClose(getIndexDaily('399006.SZ'), 'CYB')
+# cyb = getClose(getIndexDaily('399006.SZ'), 'CYB')
 cyb50 = getClose(getIndexDaily('399673.SZ'), 'CYB50')
 kc50 = getClose(getIndexDaily('000688.SH'), 'KC50')
 national_debt = getClose(getFundDaily('511010.SH'), 'National Debt')
 
-df_result = mergeDf(sh50, cyb, cyb50, kc50, national_debt)
+df_result = mergeDf(sh50, cyb50, kc50, national_debt)
 
 
-print()
-print('-' * 20)
-print()
-print('Index quotes of recent 20 trade days:')
-print()
-print('-' * 20)
-print()
-print(df_result)
-print()
-print('-' * 20)
-print()
+# print()
+# print('-' * 20)
+# print()
+# print('Index quotes of recent 20 trade days:')
+# print()
+# print('-' * 20)
+# print()
+# print(df_result)
+# print()
+# print('-' * 20)
+# print()
 
 
 #Calculate the gains of the indexes for the dedicated duration. 
@@ -96,18 +116,19 @@ def stockGains(df):
 
 
 index_gains = stockGains(df_result)
+sendMessage(token=webex_token, room_id=webex_room_id, message=index_gains.to_string(index=False))
 
-print()
-print('-' * 20)
-print()
-print('Index gains of recent 20 trade days:')
-print()
-print('-' * 20)
-print()
-print(index_gains)
-print()
-print('-' * 20)
-print()
+# print()
+# print('-' * 20)
+# print()
+# print('Index gains of recent 20 trade days:')
+# print()
+# print('-' * 20)
+# print()
+# print(index_gains)
+# print()
+# print('-' * 20)
+# print()
 
 
 #Give trade advisor.
@@ -118,22 +139,23 @@ def tradeAdvisor(df_gains):
 	max_percentage = df_gains.iloc[-1, 2]
 
 	if max_gain > 0:
-		print()
-		print('Gains of {index} in recent 20 days is {gains}, so {index} is recommanded.'\
-			.format(index=max_index, gains=max_percentage))
-		print()
-		print('-' * 20)
-		print()
+		# print()
+		msg = 'Gains of {index} in recent 20 trade days is {gains}, so {index} is recommended.'\
+			.format(index=max_index, gains=max_percentage)
+		# print()
+		# print('-' * 20)
+		# print()
 	else:
-		print()
-		print('Short position!')
-		print()
-		print('-' * 20)
-		print()		
+		# print()
+		msg = 'Short position!'
+		# print()
+		# print('-' * 20)
+		# print()
+	return msg
 
 
-tradeAdvisor(index_gains)
-
+advisor = tradeAdvisor(index_gains)
+sendMessage(token=webex_token, room_id=webex_room_id, message=advisor)
 
 
 
