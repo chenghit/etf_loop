@@ -6,6 +6,7 @@ import requests
 import json
 import tushare as ts
 import pandas as pd
+import pandas_datareader as pdr
 
 from my_tokens.my_tokens import *
 
@@ -38,8 +39,8 @@ def getDays(beforeOfDay):
 	end_date = today.strftime('%Y%m%d')
 	return start_date, end_date
 
-start_date, end_date = getDays(45)
-
+start_date, end_date = getDays(50)
+trade_days = 22
 pro = ts.pro_api(tushare_token)
 
 #Get the daily quotes of the indexes.
@@ -51,6 +52,9 @@ def getFundDaily(ts_code, start_date=start_date, end_date=end_date):
 	fund_daily = pro.fund_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
 	return fund_daily
 
+def getIndexGlobalDaily(ts_code, start_date=start_date, end_date=end_date):
+	index_global_daily = pro.index_global(ts_code=ts_code, start_date=start_date, end_date=end_date)
+	return index_global_daily
 
 #Retrieve the trade dates and the close prices only.
 def getClose(df, index_name):
@@ -58,6 +62,13 @@ def getClose(df, index_name):
 	df = df.rename(columns = {'close':index_name})
 	return df
 
+def getIxicClose():
+	df1 = pdr.DataReader('^IXIC', data_source='yahoo', start=start_date, end=end_date)
+	df2 = pd.DataFrame()
+	df2['IXIC'] = df1['Close']
+	df2 = df2.tail(trade_days + 1)
+	df2 = df2.reset_index(drop=True)
+	return df2
 
 #Merge and optimize the data frames of the indexes.
 def mergeDf(*args):
@@ -70,7 +81,7 @@ def mergeDf(*args):
 	df = pd.concat(df_list, axis=1, join='outer')
 	df = df.T.drop_duplicates().T
 	df = df.sort_values(by='trade_date')
-	df = df.tail(21)
+	df = df.tail(trade_days + 1)
 	df = df.reset_index(drop=True)
 
 	return df
@@ -80,9 +91,12 @@ sh50 = getClose(getIndexDaily('000016.SH'), 'SH50')
 # cyb = getClose(getIndexDaily('399006.SZ'), 'CYB')
 cyb50 = getClose(getIndexDaily('399673.SZ'), 'CYB50')
 kc50 = getClose(getIndexDaily('000688.SH'), 'KC50')
-national_debt = getClose(getFundDaily('511010.SH'), 'National Debt')
+national_debt = getClose(getFundDaily('511010.SH'), 'Debt')
+cn_ott = getClose(getFundDaily('513050.SH'), 'CNOTT')
+ixic = getIxicClose()
 
-df_result = mergeDf(sh50, cyb50, kc50, national_debt)
+df_result = mergeDf(sh50, cyb50, kc50, cn_ott, national_debt)
+df_result = df_result.join(ixic)
 
 
 # print()
@@ -99,24 +113,25 @@ df_result = mergeDf(sh50, cyb50, kc50, national_debt)
 
 
 #Calculate the gains of the indexes for the dedicated duration. 
-def stockGains(df):	
+def stockGains(df):
 
 	df_gains = pd.DataFrame(columns=['Index', 'Gains'])
 
 	for column in df.columns[1:]:
 		ts_code = column
-		gains = (df[column][20] - df[column][0]) / df[column][0]
+		gains = (df[column][trade_days] - df[column][0]) / df[column][0]
 		df_new = pd.DataFrame({'Index': ts_code, 'Gains': gains}, index=[1])
 		df_gains = df_gains.append(df_new, ignore_index=True)
-	
+
 	df_gains = df_gains.sort_values(by='Gains').reset_index(drop=True)
 	df_gains['Gains%'] = df_gains['Gains'].apply(lambda x: '%.2f%%' % (x * 100))
-
 	return df_gains
 
 
 index_gains = stockGains(df_result)
-sendMessage(token=webex_token, room_id=webex_room_id, message=index_gains.to_string(index=False))
+msg = index_gains.drop(columns=['Gains']).to_string(index=False, col_space=16, justify='center')
+message = '\n\n'.join(['Index gains of recent {days} trade days:'.format(days=trade_days), msg])
+sendMessage(token=webex_token, room_id=webex_room_id, message=message)
 
 # print()
 # print('-' * 20)
@@ -140,8 +155,8 @@ def tradeAdvisor(df_gains):
 
 	if max_gain > 0:
 		# print()
-		msg = 'Gains of {index} in recent 20 trade days is {gains}, so {index} is recommended.'\
-			.format(index=max_index, gains=max_percentage)
+		msg = 'Gains of {index} in recent {days} trade days is {gains}, so {index} is recommended.'\
+			.format(index=max_index, days=trade_days, gains=max_percentage)
 		# print()
 		# print('-' * 20)
 		# print()
